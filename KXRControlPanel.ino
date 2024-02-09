@@ -62,6 +62,7 @@ const unsigned int checkInterval = 100;
 
 int incomingByte = 0;
 
+int instruction = 0; // Will hold the current value of all buttons as a binary representation
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGBW);// Defines an object
 
@@ -85,6 +86,7 @@ void setup(){
 
 void loop() {
   
+    // Temp function to check reading data went well
     if (Serial.available() > 0) {
       // read the incoming byte:
       incomingByte = Serial.read();
@@ -92,14 +94,10 @@ void loop() {
       // say what you got:
       //Serial.print("I received: ");
       Serial.println(incomingByte, DEC);
-
-      // Thinking of adding a function to actually do the stuff with the data
-      //foo(incomingByte);
-  }
+    }
   //int data_raw = Serial.read(); // server.py line 59
-  
-  // Serial.println(thing);
 
+  // checkButtons();
 }
 
 // Sets all pixels to a designated color
@@ -113,11 +111,12 @@ void initColor(uint32_t color){
 
 // Could return true if the panel configuration was successful
 // Reads in input fron Python to configure the buttons
-void configPanel(){
-  bool config_arr[16]; // might need to change to integer array
+bool* configPanel(){
+  static bool config_arr[16]; // might need to change to integer array
   for(int i = 0; i < 16; i++){
     config_arr[i] = Serial.read(size = 1);
   }
+  return config_arr;
 
   // Thinking of just making a boolean array
   // This boolean array will be used in making buttons work or not work in the if statements
@@ -132,22 +131,38 @@ void configPanel(){
 
 // Things below here aren't as easily testable
 
-void checkButtons(){
+void checkButtons(int config_arr){
+  
+  if(config_arr[0] &&){
+    swState.sw_one = (swState.sw_one + 1) % 2;
+    if(swState.sw_one == 1) instruction = instruction | 1;
+    else instruction = instruction & 0; 
+    sendInstruction(instruction);
+  }
+
+  if(config_arr[0]){
+    // See arduino ide change of state example
+  }
   /*
   15 if-statements
     If ChangeOfState detected, set the value to 1 with bitmask
     Also change the associated LED from Neopixel
     Also call sendSerial();
   */
-}
-
-// Sends serial instruction to Python, called within checkButtons()
-void sendSerial(){
-  instruction = createInstruction();
   sendInstruction(instruction);
 }
 
+// Wait i dont even need this function
 int createInstruction(){
+  int new_instruction = 0;
+  /*
+    I JUST REALIZED
+    make a var, set = 0
+    instruction? bitmask by the value 
+    Basically, if I start with 0, then I have input (say corresponding is 3rd bit from right)
+    Then, bitmask that by OR 4, 2^(3-1)
+    Now, I do have one issue, when do I detect turning off a sate
+  */
 
   // What I would like to do is just have a 16-bit string as global variable
   // Then bitmask this whenever there is a change of state
@@ -161,9 +176,8 @@ int createInstruction(){
        }
      */
 
-  // So this is one possibility, albeit not a good one
-  int new_instruction = 0;
-
+  /*
+  bitmasks 
   new_instruction += swState.sw_one * 1;
   new_instruction += swState.sw_two * 2;
   new_instruction += swState.sw_three * 4;
@@ -180,7 +194,7 @@ int createInstruction(){
   new_instruction += btState.bt_three * 4096;
   new_instruction += btState.bt_four * 8192;
   new_instruction += btState.bt_five * 16384;
-
+  */
   return new_instruction;
 }
 
