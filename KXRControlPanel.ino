@@ -1,19 +1,29 @@
-#include <Adafruit_NeoPixel.h> // Header for Neopixel library
-//#include "ButtonControl.h"
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
-#define LED_PIN 1 // What pin on arduino is connected to NeoPixels
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
-#define LED_COUNT 50 // Number of NeoPixels attached
+#define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 
-#define BRIGHTNESS 255 // max = 255
+#define TOGGLE_BIT(button_state, bit) ((button_state) ^ (1 << bit))
+// To Call: TOGGLE_BIT(0, 7)
 
 
-// structs
+const unsigned int checkInterval = 100;
 
-// If i can just store that as a bytearray I can just document it in a comment
+/*
+When reading in strings for OLED, config switches at the same time
+if(emptry string) skip OLED
+if that switch is hit, send "empty" to python and deal with it there
+handle bitmasking in python instead
+*/
 
-// Stores states of switches (10)
-struct swState{
+// Stores previous button state for checking if there was an update
+struct states{
   bool sw_one = 0;
   bool sw_two = 0;
   bool sw_three = 0;
@@ -24,197 +34,129 @@ struct swState{
   bool sw_eight = 0;
   bool sw_nine = 0;
   bool sw_ten = 0;
-} swState; // Do I even need this?
-
-// Stores states of buttons (5)
-struct btState{
   bool bt_one = 0;
   bool bt_two = 0;
   bool bt_three = 0;
   bool bt_four = 0;
   bool bt_five = 0;
-} btState; // Do I even need this?
+};
 
-// Stores NeoPixel pin numbers for each button and switch
-struct ledPin{
-  // 10 switches
-  int pix_swone = 1;
-  int pix_swtwo = 2;
-  int pix_swthree = 3;
-  int pix_swfour = 4;
-  int pix_swfive = 5;
-  int pix_swsix = 6;
-  int pix_swseven = 7;
-  int pix_sweight = 8;
-  int pix_swnine = 9;
-  int pix_swten = 10;
-
-  // 5 buttons
-  int pix_btone = 11;
-  int pix_bttwo = 12;
-  int pix_btthree = 13;
-  int pix_btfour = 14;
-  int pix_btfive = 15;
-} ledPin;
-
-
-const unsigned int checkInterval = 100;
-
-int incomingByte = 0;
-
-int instruction = 0; // Will hold the current value of all buttons as a binary representation
-
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGBW);// Defines an object
+// Stores associated commands for sending to Python
+// String stores "empty" if no function
+struct commands{
+  String cmd_sw_one;
+  String cmd_sw_two;
+  String cmd_sw_three;
+  String cmd_sw_four;
+  String cmd_sw_five;
+  String cmd_sw_six;
+  String cmd_sw_seven;
+  String cmd_sw_eight;
+  String cmd_sw_nine;
+  String cmd_sw_ten;
+  String cmd_bt_one;
+  String cmd_bt_two;
+  String cmd_bt_three;
+  String cmd_bt_four;
+  String cmd_bt_five;
+};
 
 void setup(){
   Serial.begin(115200);
-  // So serial is reading in 240?
 
-  strip.begin(); // Initializes the strip object
-  strip.show(); // Turns off pixels
-  strip.setBrightness(BRIGHTNESS); 
-
-  initColor(strip.Color(255, 0, 0)); // color is Red
-
+  // Wait until the serial becomes available
   while(!Serial){
-    ; // Wait until the serial becomes available
+    ; 
   }
+
+  Serial.println("READY");
+  delay(1000);
 
   configPanel();
+  
 }
-
 
 void loop() {
+  checkButtons()
+}
+
+// Writes strings to OLEDs for associated switches
+// Modifies switches based on function
+void configPanel(){
+  Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); // Initializes object
+  // do it again, name appropriately left to right 1-X
+
+  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+
+  // do it again
   
-    // Temp function to check reading data went well
-    if (Serial.available() > 0) {
-      // read the incoming byte:
-      incomingByte = Serial.read();
+  // Clears old stuff
+  display.display();
+  display.clearDisplay();
+  // Now do it again
 
-      // say what you got:
-      //Serial.print("I received: ");
-      Serial.println(incomingByte, DEC);
-    }
-  //int data_raw = Serial.read(); // server.py line 59
+  // Gets the new stuff
+  commands.cmd_sw_one = Serial.readStringUntil('\n');
+  (commands.cmd_sw_one).trim();
 
-  // checkButtons();
-}
-
-// Sets all pixels to a designated color
-void initColor(uint32_t color){
-  // Iterates over each pixel in the strip
-  for(int i = 0; i <strip.numPixels(); i++){
-    strip.setPixelColor(i, color); // Built in function
-    strip.show(); // Updates strip to match edit
+  if(commands.cmd_sw_one != "empty"){
+    // Puts the new stuff on there
+    display.setTextSize(2);
+    display.setTextColor(WHITE, BLACK);
+    display.setCursor(0,0);
+    display.print(commands.cmd_sw_one); 
+    display.display();
   }
-}
+    
 
-// Could return true if the panel configuration was successful
-// Reads in input fron Python to configure the buttons
-bool* configPanel(){
-  static bool config_arr[16]; // might need to change to integer array
-  for(int i = 0; i < 16; i++){
-    config_arr[i] = Serial.read(size = 1);
-  }
-  return config_arr;
+  // Now do it again
 
-  // Thinking of just making a boolean array
-  // This boolean array will be used in making buttons work or not work in the if statements
-  /* Example:
-      arr[i] = true; means button is in use
-      arr[i] = false; means button not in use
-      if(ChangeOfState && arr[correspondingIndexNum]){
-        do thing
-      }
-  */
 } // End configPanel()
 
-// Things below here aren't as easily testable
 
-void checkButtons(int config_arr){
+void checkButtons(){
   
-  if(config_arr[0] &&){
-    swState.sw_one = (swState.sw_one + 1) % 2;
-    if(swState.sw_one == 1) instruction = instruction | 1;
-    else instruction = instruction & 0; 
-    sendInstruction(instruction);
-  }
+  /*
+  if(switch one is hit)
+    ser.println(commands.cmd_sw_one);
+  */
+  // See arduino change of state example
 
-  if(config_arr[0]){
-    // See arduino ide change of state example
-  }
+  */
   /*
   15 if-statements
-    If ChangeOfState detected, set the value to 1 with bitmask
     Also change the associated LED from Neopixel
-    Also call sendSerial();
-  */
-  sendInstruction(instruction);
-}
-
-// Wait i dont even need this function
-int createInstruction(){
-  int new_instruction = 0;
-  /*
-    I JUST REALIZED
-    make a var, set = 0
-    instruction? bitmask by the value 
-    Basically, if I start with 0, then I have input (say corresponding is 3rd bit from right)
-    Then, bitmask that by OR 4, 2^(3-1)
-    Now, I do have one issue, when do I detect turning off a sate
-  */
-
-  // What I would like to do is just have a 16-bit string as global variable
-  // Then bitmask this whenever there is a change of state
-  // Would prob just bitmask an OR of 0000 0000 0010 0000 to just change the state of that index to on
-  // Then for a turn off bitmask an AND of 1111 1111 1101 1111
-  // Example:
-    /*
-     * if(changeInButton){
-         bitmask to the associated thing
-         send this state
-       }
-     */
-
-  /*
-  bitmasks 
-  new_instruction += swState.sw_one * 1;
-  new_instruction += swState.sw_two * 2;
-  new_instruction += swState.sw_three * 4;
-  new_instruction += swState.sw_four * 8;
-  new_instruction += swState.sw_five * 16;
-  new_instruction += swState.sw_six * 32;
-  new_instruction += swState.sw_seven * 64;
-  new_instruction += swState.sw_eight * 128;
-  new_instruction += swState.sw_nine * 256;
-  new_instruction += swState.sw_ten * 512;
-
-  new_instruction += btState.bt_one * 1024;
-  new_instruction += btState.bt_two * 2048;
-  new_instruction += btState.bt_three * 4096;
-  new_instruction += btState.bt_four * 8192;
-  new_instruction += btState.bt_five * 16384;
-  */
-  return new_instruction;
-}
-
-void sendInstruction(instruction){
-  // send instruction to socket
-}
+  
+  
+} */
 
 /*THOUGHTS
- * tbh i prob need a header file cuz holy shit this is getting long
- * 1. Make a header file with a cpp file to reference
- *    This will have the controls for the buttons and what each input does
- * 2. Make a function dedicated to reading serial
+ * 2. Thinking of scrapping the config_arr idea
  * 3. Make a function dedicated to changing the light
  * 4. Make a python function dedicated to sending instruction
  * 5. Could just make a sample function for writing to serial on loop
- * 
- *
+ * 6. STM32 will only be doing sending, we are going to have a separate board for NeoPixels
+ * 7. Apparently im reading a string to display to OLED
+ * 8. IS AVIONICS EXISTING???
 
- * Test this
-uint32_t number = 123456789; // the integer to send
-Serial.write((uint8_t*)&number, sizeof(number)); // write the bytes of the number
+ 2 different scripts:
+  One sending data to LED control
+  One for OLEDS and switches and avionics
+  Then a python script for each
+
+  LEDS get data from wanda
 
  */
+
+
+
+
+  // This works, sends back b'This\r\n'
+  /*
+  String var = Serial.readString();
+  var.trim();
+  Serial.println(var);
+  */

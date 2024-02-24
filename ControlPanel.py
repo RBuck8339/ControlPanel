@@ -1,71 +1,88 @@
 import serial
 import time
-from ctypes import c_uint32 as uint32_t
+import socket
 
 
+# Wanda Setup
+PRINT_SENSORS_COMMAND = 0x55000000
+ADD_SENSOR_COMMAND = 0xCF000000
+wandaSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+try:
+    wandaSocket.connect(('192.168.1.10', 35912))
+except Exception as e:
+    print(f"Failed to connect: {e}")
+    exit(1)
+
+# End Wanda Setup
+
+
+# Serial Setup
 PORT_NAME = 'COM3'
 FILE_NAME = 'this.txt'
 
-
-# I like this
 ser = serial.Serial(PORT_NAME, baudrate=115200, write_timeout=1.000)
 ser.flushInput()
 ser.flushOutput()
 
+# End Serial Setup
 
-def getInstruction():
-    pass
+instruction = 0
+
+
+def sendToWanda(number: int):
+    # wandaSocket.sendall(number.to_bytes(length=4, byteorder="little", signed=False))  # Does this send as hex?
+    # Send Hex: 'BC--' bitwise | with it
+
     '''
-    Receive a byte array from Serial
-    Bitshift left by 24, 16, 8, 0
-    Actually I really only need to read in a 16 bit since there are only 15 controls
+    31 - 24 is BC
+    14 - 0 will just be state of buttons(on or off)
+    Just waste the rest of them
     '''
-    # instruction = binToDec()
-    # sendInstruction(instruction)
 
 
-# Needs param of binary number to convert, a 32 bit binary number, a bytearray()
-def binToDec():
-    # sendInstruction()
-    pass
+
+def bitFlip(button_state: int, bits: int):
+    return (button_state ^ (1 << bits))
 
 
-# Needs param of the instruction to send, an integer
-def sendInstruction(instruction):
-    pass
+def waitInstruction():
+    global instruction
+    while True:
+        instruction_code = ser.readline().decode('UTF-8').strip()
+        if instruction_code != "":  # Test this line
+            if instruction_code == "empty":
+                pass
+            # Gotta Test
+            elif instruction_code == "fill":
+                instruction ^= bitFlip(1, 0)
+                print(instruction)
+                sendToWanda(instruction)
+            elif instruction_code == "vent":
+                pass
+            # Continue this pattern
+
 
 
 def sendConfig():
-    with open('this.txt', 'r') as my_file:
-        while True:
-            line = my_file.readline().strip()  # Reads line without newline character
-
-            if not line:
-                break
-
-            ser.write(line.encode('utf-8'))
-
-            new_read = ser.read()
-            print(new_read)
-
-            time.sleep(0.500)
+    with open('OLED.txt', 'r') as f:
+        [ser.write(line.encode()) for line in f.readlines()]  # Line is stripped in the arduino IDE
+    f.close()
 
 
-if __name__ == "__main__":
-    # Should clear the input buffer
-    while ser.available() == 0:
-        pass
-
-    sendConfig()
-
-    '''
+def main():
     while True:
-        if Serial.available() > 0:
-            getInstruction()
-            
-    '''
-    '''
-    Maybe a try-except thing waiting for the file
-    '''
+        var = ser.readline().decode('UTF-8').strip()
+        if var == "READY":
+            break
+    sendConfig()
+    waitInstruction()
 
 
+if __name__ == '__main__':
+    main()
+
+
+
+
+# var = ser.readline().decode('UTF-8').strip()
