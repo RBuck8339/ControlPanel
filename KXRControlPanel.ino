@@ -118,41 +118,22 @@ void configPanel(){
 
 
 void checkButtons(){
-  
+  if(states.sw_one != digitalRead(sw_one_pin)){
+    Serial.println(command.cmd_sw_one);
+  }
+  // do it again
+
   /*
   if(switch one is hit)
     ser.println(commands.cmd_sw_one);
   */
   // See arduino change of state example
-
-  */
   /*
   15 if-statements
     Also change the associated LED from Neopixel
   
   
 } */
-
-/*THOUGHTS
- * 2. Thinking of scrapping the config_arr idea
- * 3. Make a function dedicated to changing the light
- * 4. Make a python function dedicated to sending instruction
- * 5. Could just make a sample function for writing to serial on loop
- * 6. STM32 will only be doing sending, we are going to have a separate board for NeoPixels
- * 7. Apparently im reading a string to display to OLED
- * 8. IS AVIONICS EXISTING???
-
- 2 different scripts:
-  One sending data to LED control
-  One for OLEDS and switches and avionics
-  Then a python script for each
-
-  LEDS get data from wanda
-
- */
-
-
-
 
   // This works, sends back b'This\r\n'
   /*

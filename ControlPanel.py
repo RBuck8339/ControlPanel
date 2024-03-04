@@ -1,5 +1,4 @@
 import serial
-import time
 import socket
 
 
@@ -27,45 +26,97 @@ ser.flushOutput()
 
 # End Serial Setup
 
-instruction = 0
+
+def sendToLED():
+    pass
 
 
 def sendToWanda(number: int):
-    # wandaSocket.sendall(number.to_bytes(length=4, byteorder="little", signed=False))  # Does this send as hex?
-    # Send Hex: 'BC--' bitwise | with it
-
-    '''
-    31 - 24 is BC
-    14 - 0 will just be state of buttons(on or off)
-    Just waste the rest of them
-    '''
+    number |= 0xBC000000
+    wandaSocket.sendall(number.to_bytes(length=4, byteorder="little", signed=False))
 
 
-
-def bitFlip(button_state: int, bits: int):
-    return (button_state ^ (1 << bits))
+def bitFlip(instruction: int, bits: int):
+    return (instruction ^ (1 << bits))
 
 
 def waitInstruction():
-    global instruction
+    instruction = 0
     while True:
         instruction_code = ser.readline().decode('UTF-8').strip()
-        if instruction_code != "":  # Test this line
-            if instruction_code == "empty":
-                pass
-            # Gotta Test
-            elif instruction_code == "fill":
-                instruction ^= bitFlip(1, 0)
-                print(instruction)
-                sendToWanda(instruction)
-            elif instruction_code == "vent":
-                pass
-            # Continue this pattern
+        if instruction_code != "":
 
+            if instruction_code == "Empty":
+                continue
+
+            elif instruction_code == "Power":
+                instruction = bitFlip(instruction, 13)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Nox Fill":
+                instruction = bitFlip(instruction, 1)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Nox Vent":
+                instruction = bitFlip(instruction, 2)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Nitrogen Fill":
+                instruction = bitFlip(instruction, 3)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Nitrogen Vent":
+                instruction = bitFlip(instruction, 4)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Nitrogen QD":
+                instruction = bitFlip(instruction, 5)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Nox QD":
+                instruction = bitFlip(instruction, 6)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Air QD":
+                instruction = bitFlip(instruction, 7)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Rocket Nox Vent":
+                instruction = bitFlip(instruction, 8)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Rocket Nitrogen Vent":
+                instruction = bitFlip(instruction, 9)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Enable Fire":
+                instruction = bitFlip(instruction, 10)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Fire":
+                instruction = bitFlip(instruction, 11)
+                sendToWanda(instruction)
+                sendToLED()
+
+            elif instruction_code == "Abort":
+                instruction = bitFlip(instruction, 12)
+                sendToWanda(instruction)
+                sendToLED()
 
 
 def sendConfig():
-    with open('OLED.txt', 'r') as f:
+    with open('OLED', 'r') as f:
         [ser.write(line.encode()) for line in f.readlines()]  # Line is stripped in the arduino IDE
     f.close()
 
@@ -81,8 +132,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-# var = ser.readline().decode('UTF-8').strip()
